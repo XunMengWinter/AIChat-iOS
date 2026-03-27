@@ -71,18 +71,44 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                    .foregroundStyle(AppTheme.purple)
-                Text(greeting)
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundStyle(AppTheme.textPrimary)
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(AppTheme.purple)
+                    Text(greeting)
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundStyle(AppTheme.textPrimary)
+                }
+
+                Text("今天想和谁聊聊天？")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
             }
 
-            Text("今天想和谁聊聊天？")
-                .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
+            Spacer(minLength: 12)
+
+            Button {
+                sessionStore.showSettings()
+            } label: {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.white.opacity(0.78))
+                    .frame(width: 50, height: 50)
+                    .overlay {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(AppTheme.purple)
+                    }
+                    .overlay(alignment: .topTrailing) {
+                        Circle()
+                            .fill(Color.white.opacity(0.94))
+                            .frame(width: 12, height: 12)
+                            .padding(8)
+                    }
+                    .shadow(color: AppTheme.cardShadow, radius: 14, x: 0, y: 8)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("设置")
         }
     }
 

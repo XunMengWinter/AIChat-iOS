@@ -50,16 +50,27 @@ final class ChatService {
 
     func streamChat(
         roleCode: String,
-        message: String,
+        message: String?,
+        imageBase64: String?,
+        imageMimeType: String?,
         accessToken: String,
         onDelta: @escaping (String) async -> Void
     ) async throws {
         struct RequestBody: Encodable {
             let roleCode: String
-            let message: String
+            let message: String?
+            let imageBase64: String?
+            let imageMimeType: String?
         }
 
-        let body = try client.encodeBody(RequestBody(roleCode: roleCode, message: message))
+        let body = try client.encodeBody(
+            RequestBody(
+                roleCode: roleCode,
+                message: message,
+                imageBase64: imageBase64,
+                imageMimeType: imageMimeType
+            )
+        )
         let request = client.makeRequest(
             url: baseURL.appending(path: "chat/stream"),
             method: "POST",

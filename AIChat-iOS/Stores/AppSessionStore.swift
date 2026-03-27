@@ -12,6 +12,7 @@ final class AppSessionStore: ObservableObject {
         case onboarding
         case login
         case home
+        case settings
         case chat(roleCode: String)
     }
 
@@ -105,6 +106,10 @@ final class AppSessionStore: ObservableObject {
         screen = .home
     }
 
+    func showSettings() {
+        screen = .settings
+    }
+
     func showLogin() {
         screen = .login
     }
@@ -116,9 +121,13 @@ final class AppSessionStore: ObservableObject {
     }
 
     func handleUnauthorized() {
+        logout()
+    }
+
+    func logout() {
         loginSession = nil
         storage.saveSession(nil)
-        screen = .login
+        updateInitialScreen()
     }
 
     func role(for roleCode: String?) -> Role? {
@@ -139,10 +148,12 @@ final class AppSessionStore: ObservableObject {
     }
 
     private func updateInitialScreen() {
-        if loginSession != nil, hasCompletedSelection, selectedRoleCode != nil {
+        if hasCompletedSelection == false || selectedRoleCode == nil {
+            screen = .onboarding
+        } else if loginSession != nil {
             screen = .home
         } else {
-            screen = .onboarding
+            screen = .login
         }
     }
 }

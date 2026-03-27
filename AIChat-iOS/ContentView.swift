@@ -19,6 +19,8 @@ struct ContentView: View {
                 LoginView()
             case .home:
                 HomeView()
+            case .settings:
+                SettingsView()
             case .chat(let roleCode):
                 if let role = sessionStore.role(for: roleCode) {
                     ChatView(role: role)

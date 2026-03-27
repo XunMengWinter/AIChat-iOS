@@ -3,12 +3,14 @@
 //  AIChat-iOS
 //
 
+import PhotosUI
 import SwiftUI
 
 struct ChatView: View {
     @EnvironmentObject private var sessionStore: AppSessionStore
     @StateObject private var viewModel = ChatViewModel()
     @FocusState private var isInputFocused: Bool
+    @State private var selectedPhotoItem: PhotosPickerItem?
 
     let role: Role
     private let pageHorizontalPadding: CGFloat = 32
@@ -38,6 +40,13 @@ struct ChatView: View {
                 accessToken: sessionStore.accessToken,
                 onUnauthorized: sessionStore.handleUnauthorized
             )
+        }
+        .onChange(of: selectedPhotoItem) { _, newValue in
+            guard let newValue else { return }
+            Task {
+                await loadSelectedImage(from: newValue)
+                selectedPhotoItem = nil
+            }
         }
     }
 
@@ -189,50 +198,120 @@ struct ChatView: View {
     }
 
     private var inputBar: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            TextField("说点什么…", text: $viewModel.draftText, axis: .vertical)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(AppTheme.textPrimary)
-                .lineLimit(1...4)
-                .focused($isInputFocused)
-                .submitLabel(.send)
-                .onSubmit {
-                    Task { await sendCurrentDraft() }
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .background(.white.opacity(0.92))
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        let isPreparingImage = viewModel.isPreparingImage
+        let isSending = viewModel.isSending
+        let canSendMessage = viewModel.canSendMessage()
 
-            Button {
-                Task { await sendCurrentDraft() }
-            } label: {
-                Circle()
-                    .foregroundStyle(
-                        viewModel.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? AnyShapeStyle(Color.gray.opacity(0.45))
-                        : AnyShapeStyle(AppTheme.actionGradient)
-                    )
-                    .frame(width: 48, height: 48)
-                    .overlay {
-                        if viewModel.isSending {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Image(systemName: "paperplane.fill")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .rotationEffect(.degrees(18))
-                        }
-                    }
+        return VStack(spacing: 10) {
+            if let draftImage = viewModel.draftImage {
+                draftImagePreviewCard(draftImage)
             }
-            .buttonStyle(.plain)
-            .disabled(viewModel.isSending || viewModel.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            HStack(alignment: .bottom, spacing: 10) {
+                PhotosPicker(
+                    selection: $selectedPhotoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    Circle()
+                        .fill(.white.opacity(0.92))
+                        .frame(width: 48, height: 48)
+                        .overlay {
+                            if isPreparingImage {
+                                ProgressView()
+                                    .tint(AppTheme.purple)
+                            } else {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(AppTheme.purple)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .disabled(isPreparingImage || isSending)
+
+                TextField("说点什么…", text: $viewModel.draftText, axis: .vertical)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .lineLimit(1...4)
+                    .focused($isInputFocused)
+                    .submitLabel(.send)
+                    .onSubmit {
+                        Task { await sendCurrentDraft() }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    .background(.white.opacity(0.92))
+                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+
+                Button {
+                    Task { await sendCurrentDraft() }
+                } label: {
+                    Circle()
+                        .foregroundStyle(
+                            canSendMessage && !isPreparingImage
+                            ? AnyShapeStyle(AppTheme.actionGradient)
+                            : AnyShapeStyle(Color.gray.opacity(0.45))
+                        )
+                        .frame(width: 48, height: 48)
+                        .overlay {
+                            if isSending {
+                                ProgressView()
+                                    .tint(.white)
+                            } else {
+                                Image(systemName: "paperplane.fill")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .rotationEffect(.degrees(18))
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSendMessage || isPreparingImage)
+            }
         }
         .padding(.horizontal, pageHorizontalPadding)
         .padding(.top, 8)
         .padding(.bottom, 18)
         .background(.ultraThinMaterial)
+    }
+
+    private func draftImagePreviewCard(_ image: DraftChatImage) -> some View {
+        HStack(spacing: 12) {
+            if let uiImage = UIImage(data: image.previewImageData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 72, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            } else {
+                placeholderThumbnail
+                    .frame(width: 72, height: 72)
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("已添加图片")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(AppTheme.textPrimary)
+                Text("\(Int(image.pixelSize.width)) × \(Int(image.pixelSize.height)) · JPEG")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+
+            Spacer()
+
+            Button {
+                viewModel.clearDraftImage()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(AppTheme.textSecondary.opacity(0.8))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.90))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     private func sendCurrentDraft() async {
@@ -241,6 +320,18 @@ struct ChatView: View {
             accessToken: sessionStore.accessToken,
             onUnauthorized: sessionStore.handleUnauthorized
         )
+    }
+
+    private func loadSelectedImage(from item: PhotosPickerItem) async {
+        do {
+            guard let imageData = try await item.loadTransferable(type: Data.self) else {
+                viewModel.setImageSelectionError("无法读取图片，请重新选择。")
+                return
+            }
+            await viewModel.prepareDraftImage(from: imageData)
+        } catch {
+            viewModel.setImageSelectionError("图片选择失败，请重试。")
+        }
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy) {
@@ -273,12 +364,20 @@ private struct MessageBubbleRow: View {
             }
 
             VStack(alignment: message.sender == .assistant ? .leading : .trailing, spacing: 4) {
-                Text(message.content.isEmpty && message.isStreaming ? "..." : message.content)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(message.sender == .user ? .white : AppTheme.textPrimary)
-                    .multilineTextAlignment(message.sender == .user ? .trailing : .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
+                VStack(alignment: message.sender == .assistant ? .leading : .trailing, spacing: 8) {
+                    if message.hasImage {
+                        messageImageContent
+                    }
+
+                    if !message.content.isEmpty || !message.hasImage {
+                        Text(message.content.isEmpty && message.isStreaming ? "..." : message.content)
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(message.sender == .user ? .white : AppTheme.textPrimary)
+                            .multilineTextAlignment(message.sender == .user ? .trailing : .leading)
+                    }
+                }
+                    .padding(.horizontal, message.hasImage ? 8 : 16)
+                    .padding(.vertical, message.hasImage ? 8 : 12)
                     .background(bubbleBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
 
@@ -294,6 +393,23 @@ private struct MessageBubbleRow: View {
     }
 
     @ViewBuilder
+    private var messageImageContent: some View {
+        if
+            let imageData = message.imagePreviewData,
+            let uiImage = UIImage(data: imageData)
+        {
+            Image(uiImage: uiImage)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: 220, maxHeight: 220)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        } else {
+            placeholderThumbnail
+                .frame(width: 184, height: 140)
+        }
+    }
+
+    @ViewBuilder
     private var bubbleBackground: some View {
         if message.sender == .user {
             AppTheme.actionGradient
@@ -301,4 +417,18 @@ private struct MessageBubbleRow: View {
             Color.white.opacity(0.90)
         }
     }
+}
+
+private var placeholderThumbnail: some View {
+    RoundedRectangle(cornerRadius: 18, style: .continuous)
+        .fill(Color.white.opacity(0.22))
+        .overlay {
+            VStack(spacing: 8) {
+                Image(systemName: "photo")
+                    .font(.system(size: 24, weight: .semibold))
+                Text("图片消息")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .foregroundStyle(.white.opacity(0.92))
+        }
 }
