@@ -10,7 +10,7 @@ struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
 
     private let recentChatsAnchor = "recentChatsAnchor"
-    private let pageHorizontalPadding: CGFloat = 32
+    private let pageHorizontalPadding: CGFloat = 16
 
     var body: some View {
         ZStack {
@@ -32,6 +32,20 @@ struct HomeView: View {
                 }
             }
         }
+        .toolbar(content: {
+            ToolbarItem(placement: .topBarTrailing, content: {
+                Button {
+                    print("点击设置按钮")
+                    sessionStore.showSettings()
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(AppTheme.purple)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("设置")
+            })
+        })
         .task(id: refreshKey) {
             await viewModel.refreshRecentChats(
                 roles: sessionStore.roles,
@@ -87,28 +101,6 @@ struct HomeView: View {
             }
 
             Spacer(minLength: 12)
-
-            Button {
-                sessionStore.showSettings()
-            } label: {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.white.opacity(0.78))
-                    .frame(width: 50, height: 50)
-                    .overlay {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(AppTheme.purple)
-                    }
-                    .overlay(alignment: .topTrailing) {
-                        Circle()
-                            .fill(Color.white.opacity(0.94))
-                            .frame(width: 12, height: 12)
-                            .padding(8)
-                    }
-                    .shadow(color: AppTheme.cardShadow, radius: 14, x: 0, y: 8)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("设置")
         }
     }
 

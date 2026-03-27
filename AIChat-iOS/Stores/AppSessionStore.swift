@@ -72,7 +72,9 @@ final class AppSessionStore: ObservableObject {
                 storage.saveSelectedRoleCode(self.selectedRoleCode)
             }
 
-            updateInitialScreen()
+            if shouldRefreshRolesAffectCurrentScreen {
+                updateInitialScreen()
+            }
         } catch {
             rolesErrorMessage = error.localizedDescription
         }
@@ -154,6 +156,15 @@ final class AppSessionStore: ObservableObject {
             screen = .home
         } else {
             screen = .login
+        }
+    }
+
+    private var shouldRefreshRolesAffectCurrentScreen: Bool {
+        switch screen {
+        case .settings, .chat:
+            return false
+        case .onboarding, .login, .home:
+            return true
         }
     }
 }

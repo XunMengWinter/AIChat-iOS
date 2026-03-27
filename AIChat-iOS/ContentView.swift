@@ -18,7 +18,11 @@ struct ContentView: View {
             case .login:
                 LoginView()
             case .home:
-                HomeView()
+                NavigationStack {
+                    HomeView()
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbarBackground(.hidden, for: .navigationBar)
+                }
             case .settings:
                 SettingsView()
             case .chat(let roleCode):
