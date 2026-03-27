@@ -11,6 +11,7 @@ struct ChatView: View {
     @FocusState private var isInputFocused: Bool
 
     let role: Role
+    private let pageHorizontalPadding: CGFloat = 32
 
     private let quickTopics = [
         "今天有点累",
@@ -119,7 +120,7 @@ struct ChatView: View {
             }
             .disabled(viewModel.isClearing)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, pageHorizontalPadding)
         .padding(.top, 14)
         .padding(.bottom, 14)
         .background(.ultraThinMaterial)
@@ -132,7 +133,7 @@ struct ChatView: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.red)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
+                .padding(.horizontal, pageHorizontalPadding)
                 .padding(.vertical, 10)
                 .background(Color.white.opacity(0.92))
         }
@@ -151,7 +152,7 @@ struct ChatView: View {
                                 .id(message.id)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, pageHorizontalPadding)
                     .padding(.top, 18)
                     .padding(.bottom, 12)
                 }
@@ -181,9 +182,10 @@ struct ChatView: View {
                     .clipShape(Capsule())
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, pageHorizontalPadding)
             .padding(.vertical, 12)
         }
+        .padding(.horizontal, -pageHorizontalPadding)
     }
 
     private var inputBar: some View {
@@ -227,7 +229,7 @@ struct ChatView: View {
             .buttonStyle(.plain)
             .disabled(viewModel.isSending || viewModel.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, pageHorizontalPadding)
         .padding(.top, 8)
         .padding(.bottom, 18)
         .background(.ultraThinMaterial)
