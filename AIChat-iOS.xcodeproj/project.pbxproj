@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		58CD8CAD2F7659D8002B2E44 /* AGENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 58CD8CAC2F7659D0002B2E44 /* AGENTS.md */; };
+		58E100012F80010000A1CHAT /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = 58E100022F80010000A1CHAT /* Nuke */; };
+		58E100032F80010000A1CHAT /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = 58E100042F80010000A1CHAT /* NukeUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -21,6 +23,11 @@
 			path = "AIChat-iOS";
 			sourceTree = "<group>";
 		};
+		58CD8D102F7669E5002B2E44 /* logs */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = logs;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -28,6 +35,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				58E100012F80010000A1CHAT /* Nuke in Frameworks */,
+				58E100032F80010000A1CHAT /* NukeUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -37,6 +46,7 @@
 		58CD8C952F765977002B2E44 = {
 			isa = PBXGroup;
 			children = (
+				58CD8D102F7669E5002B2E44 /* logs */,
 				58CD8CAC2F7659D0002B2E44 /* AGENTS.md */,
 				58CD8CA02F765977002B2E44 /* AIChat-iOS */,
 				58CD8C9F2F765977002B2E44 /* Products */,
@@ -68,9 +78,12 @@
 			);
 			fileSystemSynchronizedGroups = (
 				58CD8CA02F765977002B2E44 /* AIChat-iOS */,
+				58CD8D102F7669E5002B2E44 /* logs */,
 			);
 			name = "AIChat-iOS";
 			packageProductDependencies = (
+				58E100022F80010000A1CHAT /* Nuke */,
+				58E100042F80010000A1CHAT /* NukeUI */,
 			);
 			productName = "AIChat-iOS";
 			productReference = 58CD8C9E2F765977002B2E44 /* AIChat-iOS.app */;
@@ -100,6 +113,9 @@
 			);
 			mainGroup = 58CD8C952F765977002B2E44;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				58E100002F80010000A1CHAT /* XCRemoteSwiftPackageReference "Nuke" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 58CD8C9F2F765977002B2E44 /* Products */;
 			projectDirPath = "";
@@ -343,6 +359,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		58E100002F80010000A1CHAT /* XCRemoteSwiftPackageReference "Nuke" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/kean/Nuke";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.9.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		58E100022F80010000A1CHAT /* Nuke */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 58E100002F80010000A1CHAT /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = Nuke;
+		};
+		58E100042F80010000A1CHAT /* NukeUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 58E100002F80010000A1CHAT /* XCRemoteSwiftPackageReference "Nuke" */;
+			productName = NukeUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 58CD8C962F765977002B2E44 /* Project object */;
 }

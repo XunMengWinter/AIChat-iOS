@@ -8,17 +8,42 @@
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject private var sessionStore: AppSessionStore
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            switch sessionStore.screen {
+            case .onboarding:
+                OnboardingView()
+            case .login:
+                LoginView()
+            case .home:
+                HomeView()
+            case .chat(let roleCode):
+                if let role = sessionStore.role(for: roleCode) {
+                    ChatView(role: role)
+                } else if sessionStore.isLoadingRoles {
+                    ProgressScreen(message: "正在加载角色…")
+                } else if let errorMessage = sessionStore.rolesErrorMessage {
+                    ErrorScreen(message: errorMessage) {
+                        Task { await sessionStore.refreshRoles() }
+                    }
+                } else {
+                    ProgressScreen(message: "正在刷新角色信息…")
+                        .task {
+                            await sessionStore.refreshRoles()
+                        }
+                }
+            }
         }
-        .padding()
+        .task {
+            await sessionStore.bootstrap()
+        }
+        .animation(.easeInOut(duration: 0.22), value: sessionStore.screen)
     }
 }
 
 #Preview {
     ContentView()
+        .environmentObject(AppSessionStore())
 }

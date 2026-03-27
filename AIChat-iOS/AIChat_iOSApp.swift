@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct AIChat_iOSApp: App {
+    @StateObject private var sessionStore = AppSessionStore()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(sessionStore)
         }
     }
 }
