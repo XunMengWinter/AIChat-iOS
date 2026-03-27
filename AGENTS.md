@@ -29,7 +29,7 @@ AI 陪伴聊天 App
 `https://xunmengwinter.github.io/ai-chat-api-wiki/`
 
 ### Figma 设计稿
-`https://www.figma.com/make/iqRAARQKZrkTia08nrxN3V/AI%E9%99%AA%E4%BC%B4%E8%81%8A%E5%A4%A9App%E5%BC%95%E5%AF%BC%E9%A1%B5?t=iNof0O9VQCgZLCCR-1`
+`https://www.figma.com/make/iqRAARQKZrkTia08nrxN3V/AI%E9%99%AA%E4%BC%B4%E8%81%8A%E5%A4%A9App%E5%BC%95%E5%AF%BC%E9%A1%B5?t=FMMSM8SrlzVS784U-1`
 
 ---
 
