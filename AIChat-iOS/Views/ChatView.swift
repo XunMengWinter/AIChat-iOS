@@ -3,6 +3,7 @@
 //  AIChat-iOS
 //
 
+import Combine
 import PhotosUI
 import SwiftUI
 
@@ -166,11 +167,20 @@ struct ChatView: View {
                     .padding(.bottom, 12)
                 }
             }
-            .onChange(of: viewModel.messages.count) { _, _ in
-                scrollToBottom(proxy: proxy)
+            .onReceive(
+                viewModel.$messages
+                    .map(\.count)
+                    .removeDuplicates()
+            ) { _ in
+                scrollToBottom(proxy: proxy, animated: true)
             }
-            .onChange(of: viewModel.messages.last?.content ?? "") { _, _ in
-                scrollToBottom(proxy: proxy)
+            .onReceive(
+                viewModel.$messages
+                    .map { $0.last?.content ?? "" }
+                    .removeDuplicates()
+                    .debounce(for: .milliseconds(80), scheduler: RunLoop.main)
+            ) { _ in
+                scrollToBottom(proxy: proxy, animated: false)
             }
         }
     }
@@ -334,10 +344,14 @@ struct ChatView: View {
         }
     }
 
-    private func scrollToBottom(proxy: ScrollViewProxy) {
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
         guard let lastID = viewModel.messages.last?.id else { return }
         DispatchQueue.main.async {
-            withAnimation(.easeOut(duration: 0.2)) {
+            if animated {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo(lastID, anchor: .bottom)
+                }
+            } else {
                 proxy.scrollTo(lastID, anchor: .bottom)
             }
         }

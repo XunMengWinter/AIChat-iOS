@@ -4,7 +4,6 @@
 //
 
 import Combine
-import CoreGraphics
 import Foundation
 
 struct ChatMessageItem: Identifiable, Equatable {
@@ -24,15 +23,6 @@ struct ChatMessageItem: Identifiable, Equatable {
 
 @MainActor
 final class ChatViewModel: ObservableObject {
-    private struct PendingImageMatch {
-        let text: String
-        let previewImageData: Data
-
-        func matches(content: String) -> Bool {
-            text.trimmingCharacters(in: .whitespacesAndNewlines) == content.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-    }
-
     @Published private(set) var messages: [ChatMessageItem] = []
     @Published var draftText = ""
     @Published private(set) var isLoadingHistory = false
@@ -44,8 +34,6 @@ final class ChatViewModel: ObservableObject {
 
     private let chatService: ChatService
     private var activeRoleCode: String?
-    private var pendingImageMatches: [PendingImageMatch] = []
-    private var localImagePreviewByHistoryID: [Int: Data] = [:]
 
     convenience init() {
         self.init(chatService: ChatService(client: APIClient()))
@@ -115,15 +103,6 @@ final class ChatViewModel: ObservableObject {
         )
         messages.append(userMessage)
 
-        if let selectedDraftImage {
-            pendingImageMatches.append(
-                PendingImageMatch(
-                    text: trimmedText,
-                    previewImageData: selectedDraftImage.previewImageData
-                )
-            )
-        }
-
         let streamingID = UUID().uuidString
         messages.append(
             ChatMessageItem(
@@ -151,9 +130,7 @@ final class ChatViewModel: ObservableObject {
                     self?.appendStream(delta, to: streamingID)
                 }
             }
-
-            let history = try await chatService.fetchHistory(roleCode: role.roleCode, accessToken: accessToken)
-            applyHistory(history, fallbackOpeningMessage: role.openingMessage)
+            markStreamingFinished(for: streamingID)
         } catch APIError.unauthorized {
             onUnauthorized()
         } catch {
@@ -212,8 +189,7 @@ final class ChatViewModel: ObservableObject {
 
         do {
             _ = try await chatService.clearChat(roleCode: role.roleCode, accessToken: accessToken)
-            pendingImageMatches.removeAll()
-            localImagePreviewByHistoryID.removeAll()
+            draftImage = nil
             messages = [openingMessage(role.openingMessage)]
         } catch APIError.unauthorized {
             onUnauthorized()
@@ -230,20 +206,6 @@ final class ChatViewModel: ObservableObject {
             return
         }
 
-        var resolvedPreviewByHistoryID = localImagePreviewByHistoryID
-        var unmatchedPendingImages = pendingImageMatches
-
-        for message in history.reversed() where message.isFromUser && message.hasImage {
-            guard resolvedPreviewByHistoryID[message.id] == nil else { continue }
-            guard let matchIndex = unmatchedPendingImages.lastIndex(where: { $0.matches(content: message.content) }) else {
-                continue
-            }
-            resolvedPreviewByHistoryID[message.id] = unmatchedPendingImages.remove(at: matchIndex).previewImageData
-        }
-
-        localImagePreviewByHistoryID = resolvedPreviewByHistoryID
-        pendingImageMatches = unmatchedPendingImages
-
         messages = history.map { message in
             ChatMessageItem(
                 id: "history-\(message.id)",
@@ -252,7 +214,7 @@ final class ChatViewModel: ObservableObject {
                 createdAt: message.createdAt,
                 isStreaming: false,
                 hasImage: message.hasImage,
-                imagePreviewData: resolvedPreviewByHistoryID[message.id]
+                imagePreviewData: nil
             )
         }
     }
@@ -289,7 +251,5 @@ final class ChatViewModel: ObservableObject {
         draftText = ""
         draftImage = nil
         errorMessage = nil
-        pendingImageMatches.removeAll()
-        localImagePreviewByHistoryID.removeAll()
     }
 }

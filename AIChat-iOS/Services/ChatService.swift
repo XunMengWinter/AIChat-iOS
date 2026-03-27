@@ -6,6 +6,7 @@
 import Foundation
 
 final class ChatService {
+    private let streamTimeout: TimeInterval = 180
     private let client: APIClient
     private let baseURL = URL(string: "https://aichattest-chat-otqjepryyc.cn-hangzhou.fcapp.run")!
 
@@ -75,6 +76,9 @@ final class ChatService {
             url: baseURL.appending(path: "chat/stream"),
             method: "POST",
             accessToken: accessToken,
+            accept: "text/event-stream",
+            timeoutInterval: streamTimeout,
+            cachePolicy: .reloadIgnoringLocalAndRemoteCacheData,
             body: body
         )
         try await client.stream(request, onEvent: onDelta)
