@@ -10,6 +10,7 @@ struct HomeView: View {
     @StateObject private var viewModel = HomeViewModel()
 
     private let recentChatsAnchor = "recentChatsAnchor"
+    private let pageHorizontalPadding: CGFloat = 32
 
     var body: some View {
         ZStack {
@@ -25,7 +26,7 @@ struct HomeView: View {
                         recentChatsSection
                             .id(recentChatsAnchor)
                     }
-                    .padding(.horizontal, 18)
+                    .padding(.horizontal, pageHorizontalPadding)
                     .padding(.top, 18)
                     .padding(.bottom, 32)
                 }
@@ -193,7 +194,9 @@ struct HomeView: View {
                         .buttonStyle(.plain)
                     }
                 }
+                .padding(.horizontal, pageHorizontalPadding)
             }
+            .padding(.horizontal, -pageHorizontalPadding)
         }
     }
 
