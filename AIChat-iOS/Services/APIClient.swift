@@ -251,8 +251,8 @@ final class APIClient {
     }
 
     private func log(_ message: String) {
-        let timestamp = Self.logDateFormatter.string(from: Date())
-        print("[API] \(timestamp) \(message)")
+//        let timestamp = Self.logDateFormatter.string(from: Date())
+//        print("[API] \(timestamp) \(message)")
     }
 
     private func formattedDuration(since startTime: CFAbsoluteTime) -> String {

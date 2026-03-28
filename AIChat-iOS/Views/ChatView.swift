@@ -44,11 +44,15 @@ struct ChatView: View {
                 topBar
                 errorBanner
                 transcript
-                quickTopicStrip
+                if isInputFocused == false {
+                    quickTopicStrip
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
                 inputBar
             }
 
         }
+        .animation(.easeInOut(duration: 0.2), value: isInputFocused)
         .task(id: role.roleCode) {
             await viewModel.loadHistory(
                 for: role,
@@ -348,6 +352,7 @@ struct ChatView: View {
 
     private func sendCurrentDraft() async {
         guard viewModel.canSendMessage(), viewModel.isClearing == false else { return }
+        isInputFocused = false
         await viewModel.sendMessage(
             for: role,
             accessToken: sessionStore.accessToken,
