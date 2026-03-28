@@ -6,6 +6,7 @@
 import Combine
 import PhotosUI
 import SwiftUI
+import NukeUI
 
 struct ChatView: View {
     @EnvironmentObject private var sessionStore: AppSessionStore
@@ -14,7 +15,7 @@ struct ChatView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
 
     let role: Role
-    private let pageHorizontalPadding: CGFloat = 32
+    private let pageHorizontalPadding: CGFloat = 16
 
     private let quickTopics = [
         "今天有点累",
@@ -25,8 +26,20 @@ struct ChatView: View {
 
     var body: some View {
         ZStack {
-            backgroundLayer
-
+            Color.clear.overlay(content: {
+                LazyImage(url: URL(string: role.backgroundURL)) { state in
+                    if let image = state.image {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .clipped()
+                    } else {
+                        Color.white.opacity(0.8)
+                    }
+                }
+            })
+            .ignoresSafeArea()
+            
             VStack(spacing: 0) {
                 topBar
                 errorBanner
@@ -34,6 +47,7 @@ struct ChatView: View {
                 quickTopicStrip
                 inputBar
             }
+
         }
         .task(id: role.roleCode) {
             await viewModel.loadHistory(
