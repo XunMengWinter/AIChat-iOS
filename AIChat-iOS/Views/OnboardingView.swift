@@ -4,10 +4,11 @@
 //
 
 import SwiftUI
+import NukeUI
 
 struct OnboardingView: View {
     @EnvironmentObject private var sessionStore: AppSessionStore
-    @State private var selectedRoleCode = ""
+    @State private var centeredVirtualIndex: Int?
 
     var body: some View {
         ZStack {
@@ -24,14 +25,18 @@ struct OnboardingView: View {
                 content
             }
         }
-        .task(id: sessionStore.roles.map(\.roleCode).joined(separator: ",")) {
-            if selectedRoleCode.isEmpty {
-                selectedRoleCode = sessionStore.selectedRoleCode ?? sessionStore.roles.first?.roleCode ?? ""
-            }
+        .task(id: roleCodesSignature) {
+            syncCarouselSelection()
         }
-        .onChange(of: selectedRoleCode) { _, newValue in
-            guard !newValue.isEmpty else { return }
-            sessionStore.updateSelectedRole(roleCode: newValue)
+        .onChange(of: centeredVirtualIndex) { _, newValue in
+            guard let newValue, sessionStore.roles.isEmpty == false else { return }
+
+            let normalizedIndex = normalizedRoleIndex(for: newValue)
+            let roleCode = sessionStore.roles[normalizedIndex].roleCode
+            if sessionStore.selectedRoleCode != roleCode {
+                sessionStore.updateSelectedRole(roleCode: roleCode)
+            }
+            recenterCarouselIfNeeded(from: newValue, normalizedIndex: normalizedIndex)
         }
     }
 
@@ -71,14 +76,29 @@ struct OnboardingView: View {
     }
 
     private var carousel: some View {
-        TabView(selection: $selectedRoleCode) {
-            ForEach(sessionStore.roles) { role in
-                OnboardingRoleCard(role: role)
-                    .padding(.horizontal, 32)
-                    .tag(role.roleCode)
+        GeometryReader { geometry in
+            let cardWidth = min(geometry.size.width - 90, 340)
+            let horizontalInset = max((geometry.size.width - cardWidth) / 2, 0)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 18) {
+                    ForEach(virtualRoleIndices, id: \.self) { virtualIndex in
+                        let role = role(forVirtualIndex: virtualIndex)
+                        let isSelected = virtualIndex == centeredVirtualIndex
+
+                        OnboardingRoleCard(role: role, isSelected: isSelected)
+                            .frame(width: cardWidth, height: 500)
+                            .scaleEffect(isSelected ? 1 : 0.9)
+                            .id(virtualIndex)
+                    }
+                }
+                .scrollTargetLayout()
             }
+            .contentMargins(.horizontal, horizontalInset, for: .scrollContent)
+            .scrollTargetBehavior(.viewAligned)
+            .scrollPosition(id: $centeredVirtualIndex)
+            .scrollClipDisabled()
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
         .frame(height: 520)
     }
 
@@ -86,9 +106,9 @@ struct OnboardingView: View {
         HStack(spacing: 8) {
             ForEach(sessionStore.roles) { role in
                 Capsule()
-                    .fill(role.roleCode == selectedRoleCode ? AnyShapeStyle(AppTheme.actionGradient) : AnyShapeStyle(Color.white.opacity(0.65)))
-                    .frame(width: role.roleCode == selectedRoleCode ? 28 : 8, height: 8)
-                    .animation(.easeInOut(duration: 0.25), value: selectedRoleCode)
+                    .fill(role.roleCode == currentRoleCode ? AnyShapeStyle(AppTheme.actionGradient) : AnyShapeStyle(Color.white.opacity(0.65)))
+                    .frame(width: role.roleCode == currentRoleCode ? 28 : 8, height: 8)
+                    .animation(.easeInOut(duration: 0.25), value: currentRoleCode)
             }
         }
         .padding(.top, 22)
@@ -112,21 +132,108 @@ struct OnboardingView: View {
         .padding(.horizontal, 24)
         .padding(.top, 24)
     }
+
+    private var roleCodesSignature: String {
+        sessionStore.roles.map(\.roleCode).joined(separator: ",")
+    }
+
+    private var currentRoleCode: String? {
+        guard sessionStore.roles.isEmpty == false else { return nil }
+
+        if let centeredVirtualIndex {
+            return role(forVirtualIndex: centeredVirtualIndex).roleCode
+        }
+        return sessionStore.selectedRoleCode ?? sessionStore.roles.first?.roleCode
+    }
+
+    private var isLoopingEnabled: Bool {
+        sessionStore.roles.count > 1
+    }
+
+    private var virtualRoleIndices: [Int] {
+        guard sessionStore.roles.isEmpty == false else { return [] }
+        let multiplier = isLoopingEnabled ? 3 : 1
+        return Array(0..<(sessionStore.roles.count * multiplier))
+    }
+
+    private func syncCarouselSelection() {
+        guard sessionStore.roles.isEmpty == false else {
+            centeredVirtualIndex = nil
+            return
+        }
+
+        let fallbackRoleCode = sessionStore.selectedRoleCode ?? sessionStore.roles.first?.roleCode
+        let realIndex = sessionStore.roles.firstIndex(where: { $0.roleCode == fallbackRoleCode }) ?? 0
+        let targetIndex = isLoopingEnabled ? realIndex + sessionStore.roles.count : realIndex
+
+        if centeredVirtualIndex != targetIndex {
+            centeredVirtualIndex = targetIndex
+        }
+
+        let roleCode = sessionStore.roles[realIndex].roleCode
+        if sessionStore.selectedRoleCode != roleCode {
+            sessionStore.updateSelectedRole(roleCode: roleCode)
+        }
+    }
+
+    private func normalizedRoleIndex(for virtualIndex: Int) -> Int {
+        let roleCount = sessionStore.roles.count
+        guard roleCount > 0 else { return 0 }
+
+        let remainder = virtualIndex % roleCount
+        return remainder >= 0 ? remainder : remainder + roleCount
+    }
+
+    private func role(forVirtualIndex virtualIndex: Int) -> Role {
+        sessionStore.roles[normalizedRoleIndex(for: virtualIndex)]
+    }
+
+    private func recenterCarouselIfNeeded(from virtualIndex: Int, normalizedIndex: Int) {
+        guard isLoopingEnabled else { return }
+
+        let roleCount = sessionStore.roles.count
+        let lowerBound = roleCount
+        let upperBound = roleCount * 2
+
+        guard virtualIndex < lowerBound || virtualIndex >= upperBound else { return }
+
+        let targetIndex = roleCount + normalizedIndex
+        guard targetIndex != virtualIndex else { return }
+
+        DispatchQueue.main.async {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                centeredVirtualIndex = targetIndex
+            }
+        }
+    }
 }
 
 private struct OnboardingRoleCard: View {
     let role: Role
+    let isSelected: Bool
 
     var body: some View {
         ZStack {
-            ZStack {
-                Color.clear.overlay(content: {
-                    RemoteImageView(url: role.backgroundURLValue)
-                        .scaledToFill()
+                LazyImage(url: URL(string: role.backgroundURL)) { state in
+                    if let image = state.image {
+                        image
+                            .resizable()
+                            .scaledToFill()
                         .opacity(0.28)
-                })
+                        .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+                    } else {
+                        Color.white.opacity(0.8)
+                    }
+                }
+                .frame(width: 320, height: 480)
                 .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 34, style: .continuous)
+                    .strokeBorder(.white, lineWidth: 2)
             }
+
 
             VStack(spacing: 24) {
                 Spacer(minLength: 28)
@@ -137,9 +244,9 @@ private struct OnboardingRoleCard: View {
                     .clipShape(Circle())
                     .overlay {
                         Circle()
-                            .strokeBorder(.white.opacity(0.95), lineWidth: 5)
+                            .strokeBorder(.white.opacity(0.95), lineWidth: isSelected ? 5 : 4)
                     }
-                    .shadow(color: .black.opacity(0.14), radius: 20, x: 0, y: 12)
+                    .shadow(color: .black.opacity(isSelected ? 0.16 : 0.10), radius: isSelected ? 20 : 14, x: 0, y: isSelected ? 12 : 8)
 
                 VStack(spacing: 8) {
                     Text(role.nickname)
@@ -164,6 +271,7 @@ private struct OnboardingRoleCard: View {
                     .padding(.bottom, 28)
             }
         }
+        .animation(.spring(response: 0.28, dampingFraction: 0.82), value: isSelected)
     }
 }
 
