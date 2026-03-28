@@ -34,6 +34,8 @@ final class ChatViewModel: ObservableObject {
 
     private let chatService: ChatService
     private var activeRoleCode: String?
+    private var activeConversationID = UUID()
+    private var latestHistoryRequestID = UUID()
 
     convenience init() {
         self.init(chatService: ChatService(client: APIClient()))
@@ -48,31 +50,54 @@ final class ChatViewModel: ObservableObject {
         accessToken: String?,
         onUnauthorized: @escaping () -> Void
     ) async {
-        if activeRoleCode != role.roleCode {
-            resetConversationState(for: role.roleCode)
-        }
+        let conversationID = activateConversationIfNeeded(for: role.roleCode)
 
         guard let accessToken else {
             onUnauthorized()
             return
         }
 
+        let requestID = UUID()
+        latestHistoryRequestID = requestID
         isLoadingHistory = true
         errorMessage = nil
+        defer {
+            if shouldApplyHistoryResult(
+                roleCode: role.roleCode,
+                conversationID: conversationID,
+                requestID: requestID
+            ) {
+                isLoadingHistory = false
+            }
+        }
 
         do {
             let history = try await chatService.fetchHistory(roleCode: role.roleCode, accessToken: accessToken)
+            guard shouldApplyHistoryResult(
+                roleCode: role.roleCode,
+                conversationID: conversationID,
+                requestID: requestID
+            ) else {
+                return
+            }
             applyHistory(history, fallbackOpeningMessage: role.openingMessage)
+        } catch is CancellationError {
+            return
         } catch APIError.unauthorized {
             onUnauthorized()
         } catch {
+            guard shouldApplyHistoryResult(
+                roleCode: role.roleCode,
+                conversationID: conversationID,
+                requestID: requestID
+            ) else {
+                return
+            }
             errorMessage = error.localizedDescription
             if messages.isEmpty {
                 messages = [openingMessage(role.openingMessage)]
             }
         }
-
-        isLoadingHistory = false
     }
 
     func sendMessage(
@@ -80,7 +105,11 @@ final class ChatViewModel: ObservableObject {
         accessToken: String?,
         onUnauthorized: @escaping () -> Void
     ) async {
-        let trimmedText = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !isSending else { return }
+
+        let conversationID = activateConversationIfNeeded(for: role.roleCode)
+        let originalDraftText = draftText
+        let trimmedText = originalDraftText.trimmingCharacters(in: .whitespacesAndNewlines)
         let selectedDraftImage = draftImage
         guard !trimmedText.isEmpty || selectedDraftImage != nil else { return }
         guard let accessToken else {
@@ -91,9 +120,11 @@ final class ChatViewModel: ObservableObject {
         errorMessage = nil
         draftText = ""
         draftImage = nil
+        invalidateHistoryRequests()
 
+        let userMessageID = UUID().uuidString
         let userMessage = ChatMessageItem(
-            id: UUID().uuidString,
+            id: userMessageID,
             sender: .user,
             content: trimmedText,
             createdAt: Date(),
@@ -117,6 +148,11 @@ final class ChatViewModel: ObservableObject {
         )
 
         isSending = true
+        defer {
+            if isActiveConversation(roleCode: role.roleCode, conversationID: conversationID) {
+                isSending = false
+            }
+        }
 
         do {
             try await chatService.streamChat(
@@ -127,18 +163,46 @@ final class ChatViewModel: ObservableObject {
                 accessToken: accessToken
             ) { [weak self] delta in
                 await MainActor.run {
-                    self?.appendStream(delta, to: streamingID)
+                    guard
+                        let self,
+                        self.isActiveConversation(roleCode: role.roleCode, conversationID: conversationID)
+                    else {
+                        return
+                    }
+                    self.appendStream(delta, to: streamingID)
                 }
             }
+            guard isActiveConversation(roleCode: role.roleCode, conversationID: conversationID) else {
+                return
+            }
             markStreamingFinished(for: streamingID)
+        } catch is CancellationError {
+            guard isActiveConversation(roleCode: role.roleCode, conversationID: conversationID) else {
+                return
+            }
+            rollbackSend(
+                userMessageID: userMessageID,
+                streamingMessageID: streamingID,
+                restoreDraftText: originalDraftText,
+                restoreDraftImage: selectedDraftImage
+            )
         } catch APIError.unauthorized {
+            if isActiveConversation(roleCode: role.roleCode, conversationID: conversationID) {
+                removeMessages(withIDs: [userMessageID, streamingID])
+            }
             onUnauthorized()
         } catch {
-            markStreamingFinished(for: streamingID)
-            errorMessage = error.localizedDescription
+            guard isActiveConversation(roleCode: role.roleCode, conversationID: conversationID) else {
+                return
+            }
+            handleSendFailure(
+                error,
+                userMessageID: userMessageID,
+                streamingMessageID: streamingID,
+                originalDraftText: originalDraftText,
+                originalDraftImage: selectedDraftImage
+            )
         }
-
-        isSending = false
     }
 
     func useQuickTopic(_ topic: String) {
@@ -179,6 +243,9 @@ final class ChatViewModel: ObservableObject {
         accessToken: String?,
         onUnauthorized: @escaping () -> Void
     ) async {
+        guard !isClearing, !isSending else { return }
+
+        let conversationID = activateConversationIfNeeded(for: role.roleCode)
         guard let accessToken else {
             onUnauthorized()
             return
@@ -186,27 +253,42 @@ final class ChatViewModel: ObservableObject {
 
         isClearing = true
         errorMessage = nil
+        invalidateHistoryRequests()
+        defer {
+            if isActiveConversation(roleCode: role.roleCode, conversationID: conversationID) {
+                isClearing = false
+            }
+        }
 
         do {
             _ = try await chatService.clearChat(roleCode: role.roleCode, accessToken: accessToken)
+            guard isActiveConversation(roleCode: role.roleCode, conversationID: conversationID) else {
+                return
+            }
+            draftText = ""
             draftImage = nil
             messages = [openingMessage(role.openingMessage)]
+        } catch is CancellationError {
+            return
         } catch APIError.unauthorized {
             onUnauthorized()
         } catch {
+            guard isActiveConversation(roleCode: role.roleCode, conversationID: conversationID) else {
+                return
+            }
             errorMessage = error.localizedDescription
         }
-
-        isClearing = false
     }
 
     private func applyHistory(_ history: [HistoryMessage], fallbackOpeningMessage: String) {
-        if history.isEmpty {
+        let normalizedHistory = normalizedHistoryMessages(history)
+
+        if normalizedHistory.isEmpty {
             messages = [openingMessage(fallbackOpeningMessage)]
             return
         }
 
-        messages = history.map { message in
+        messages = normalizedHistory.map { message in
             ChatMessageItem(
                 id: "history-\(message.id)",
                 sender: message.isFromUser ? .user : .assistant,
@@ -245,11 +327,88 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
+    private func handleSendFailure(
+        _ error: Error,
+        userMessageID: String,
+        streamingMessageID: String,
+        originalDraftText: String,
+        originalDraftImage: DraftChatImage?
+    ) {
+        let hasAssistantReply = messageHasRenderableContent(messageID: streamingMessageID)
+        markStreamingFinished(for: streamingMessageID)
+        errorMessage = error.localizedDescription
+
+        guard hasAssistantReply == false else { return }
+
+        removeMessages(withIDs: [userMessageID])
+        restoreDraftIfPossible(text: originalDraftText, image: originalDraftImage)
+    }
+
+    private func rollbackSend(
+        userMessageID: String,
+        streamingMessageID: String,
+        restoreDraftText: String,
+        restoreDraftImage: DraftChatImage?
+    ) {
+        removeMessages(withIDs: [userMessageID, streamingMessageID])
+        restoreDraftIfPossible(text: restoreDraftText, image: restoreDraftImage)
+    }
+
+    private func restoreDraftIfPossible(text: String, image: DraftChatImage?) {
+        let hasExistingDraftText = !draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard hasExistingDraftText == false, draftImage == nil else { return }
+        draftText = text
+        draftImage = image
+    }
+
+    private func removeMessages(withIDs ids: [String]) {
+        let idSet = Set(ids)
+        messages.removeAll { idSet.contains($0.id) }
+    }
+
+    private func messageHasRenderableContent(messageID: String) -> Bool {
+        guard let message = messages.first(where: { $0.id == messageID }) else { return false }
+        return !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || message.hasImage
+    }
+
+    private func normalizedHistoryMessages(_ history: [HistoryMessage]) -> [HistoryMessage] {
+        let committedMessages = history.filter { $0.isPartial == false }
+        let sourceMessages = committedMessages.isEmpty ? history : committedMessages
+
+        return sourceMessages.filter { message in
+            !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || message.hasImage
+        }
+    }
+
+    private func activateConversationIfNeeded(for roleCode: String) -> UUID {
+        if activeRoleCode != roleCode {
+            resetConversationState(for: roleCode)
+        }
+        return activeConversationID
+    }
+
+    private func isActiveConversation(roleCode: String, conversationID: UUID) -> Bool {
+        activeRoleCode == roleCode && activeConversationID == conversationID
+    }
+
+    private func shouldApplyHistoryResult(roleCode: String, conversationID: UUID, requestID: UUID) -> Bool {
+        isActiveConversation(roleCode: roleCode, conversationID: conversationID) && latestHistoryRequestID == requestID
+    }
+
+    private func invalidateHistoryRequests() {
+        latestHistoryRequestID = UUID()
+    }
+
     private func resetConversationState(for roleCode: String) {
         activeRoleCode = roleCode
+        activeConversationID = UUID()
+        invalidateHistoryRequests()
         messages = []
         draftText = ""
         draftImage = nil
         errorMessage = nil
+        isLoadingHistory = false
+        isSending = false
+        isClearing = false
     }
 }

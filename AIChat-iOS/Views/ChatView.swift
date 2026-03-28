@@ -71,7 +71,9 @@ struct ChatView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 12) {
+        let isConversationActionDisabled = viewModel.isSending || viewModel.isClearing
+
+        return HStack(spacing: 12) {
             Button {
                 sessionStore.showHome()
             } label: {
@@ -128,7 +130,7 @@ struct ChatView: View {
                             .foregroundStyle(AppTheme.textPrimary)
                     }
             }
-            .disabled(viewModel.isClearing)
+            .disabled(isConversationActionDisabled)
         }
         .padding(.horizontal, pageHorizontalPadding)
         .padding(.top, 14)
@@ -167,6 +169,7 @@ struct ChatView: View {
                     .padding(.bottom, 12)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .onReceive(
                 viewModel.$messages
                     .map(\.count)
@@ -186,13 +189,16 @@ struct ChatView: View {
     }
 
     private var quickTopicStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let isConversationActionDisabled = viewModel.isSending || viewModel.isClearing
+
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(quickTopics, id: \.self) { topic in
                     Button(topic) {
                         viewModel.useQuickTopic(topic)
                         isInputFocused = true
                     }
+                    .disabled(isConversationActionDisabled)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(AppTheme.textPrimary)
                     .padding(.horizontal, 14)
@@ -210,6 +216,7 @@ struct ChatView: View {
     private var inputBar: some View {
         let isPreparingImage = viewModel.isPreparingImage
         let isSending = viewModel.isSending
+        let isClearing = viewModel.isClearing
         let canSendMessage = viewModel.canSendMessage()
 
         return VStack(spacing: 10) {
@@ -238,13 +245,14 @@ struct ChatView: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .disabled(isPreparingImage || isSending)
+                .disabled(isPreparingImage || isSending || isClearing)
 
                 TextField("说点什么…", text: $viewModel.draftText, axis: .vertical)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(AppTheme.textPrimary)
                     .lineLimit(1...4)
                     .focused($isInputFocused)
+                    .disabled(isClearing)
                     .submitLabel(.send)
                     .onSubmit {
                         Task { await sendCurrentDraft() }
@@ -277,7 +285,7 @@ struct ChatView: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .disabled(!canSendMessage || isPreparingImage)
+                .disabled(!canSendMessage || isPreparingImage || isClearing)
             }
         }
         .padding(.horizontal, pageHorizontalPadding)
@@ -325,6 +333,7 @@ struct ChatView: View {
     }
 
     private func sendCurrentDraft() async {
+        guard viewModel.canSendMessage(), viewModel.isClearing == false else { return }
         await viewModel.sendMessage(
             for: role,
             accessToken: sessionStore.accessToken,
