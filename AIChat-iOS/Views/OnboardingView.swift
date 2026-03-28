@@ -43,7 +43,6 @@ struct OnboardingView: View {
             Spacer(minLength: 12)
             primaryButton
         }
-        .padding(.horizontal, 24)
         .padding(.top, 18)
         .padding(.bottom, 28)
     }
@@ -75,7 +74,7 @@ struct OnboardingView: View {
         TabView(selection: $selectedRoleCode) {
             ForEach(sessionStore.roles) { role in
                 OnboardingRoleCard(role: role)
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 32)
                     .tag(role.roleCode)
             }
         }
@@ -110,6 +109,7 @@ struct OnboardingView: View {
         }
         .buttonStyle(.plain)
         .disabled(sessionStore.selectedRole == nil)
+        .padding(.horizontal, 24)
         .padding(.top, 24)
     }
 }
@@ -119,25 +119,12 @@ private struct OnboardingRoleCard: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 34, style: .continuous)
-                .fill(.white.opacity(0.88))
-                .shadow(color: AppTheme.cardShadow, radius: 28, x: 0, y: 18)
-
             ZStack {
-                RemoteImageView(url: role.backgroundURLValue)
-                    .scaledToFill()
-                    .opacity(0.28)
-                    .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
-
-                LinearGradient(
-                    colors: [
-                        .white.opacity(0.72),
-                        .white.opacity(0.40),
-                        .white.opacity(0.82)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                Color.clear.overlay(content: {
+                    RemoteImageView(url: role.backgroundURLValue)
+                        .scaledToFill()
+                        .opacity(0.28)
+                })
                 .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
             }
 
