@@ -3,12 +3,42 @@
 //  AIChat-iOS
 //
 
+import Alamofire
 import Foundation
 
 final class APIClient {
-    private final class StreamTimingState {
-        var streamOpenedAt: CFAbsoluteTime?
-        var didLogFirstDelta = false
+    private final class StreamState: @unchecked Sendable {
+        private let lock = NSLock()
+        private var response: HTTPURLResponse?
+        private var streamOpenedAt: CFAbsoluteTime?
+        private var didLogFirstDelta = false
+
+        func setResponse(_ response: HTTPURLResponse) {
+            lock.lock()
+            self.response = response
+            lock.unlock()
+        }
+
+        func responseValue() -> HTTPURLResponse? {
+            lock.lock()
+            defer { lock.unlock() }
+            return response
+        }
+
+        func setStreamOpenedAt(_ streamOpenedAt: CFAbsoluteTime) {
+            lock.lock()
+            self.streamOpenedAt = streamOpenedAt
+            lock.unlock()
+        }
+
+        func consumeFirstDeltaStreamOpenedAt() -> CFAbsoluteTime? {
+            lock.lock()
+            defer { lock.unlock() }
+
+            guard !didLogFirstDelta else { return nil }
+            didLogFirstDelta = true
+            return streamOpenedAt
+        }
     }
 
     private static let logDateFormatter: ISO8601DateFormatter = {
@@ -17,12 +47,12 @@ final class APIClient {
         return formatter
     }()
 
-    private let session: URLSession
+    private let session: Session
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
     init(
-        session: URLSession = .shared,
+        session: Session = APIClient.makeSession(),
         decoder: JSONDecoder = APIJSONDecoder.shared,
         encoder: JSONEncoder = {
             let encoder = JSONEncoder()
@@ -67,9 +97,26 @@ final class APIClient {
         logRequest(request, requestID: requestID, isStream: false)
 
         do {
-            let (data, response) = try await session.data(for: request)
-            logResponse(response, data: data, requestID: requestID, startedAt: startTime, isStream: false)
-            try validate(response: response, data: data)
+            let response = await session
+                .request(request)
+                .serializingData(automaticallyCancelling: true, dataPreprocessor: PassthroughPreprocessor())
+                .response
+
+            let data = response.data ?? Data()
+
+            if let httpResponse = response.response {
+                logResponse(httpResponse, data: data, requestID: requestID, startedAt: startTime, isStream: false)
+            }
+
+            if let error = response.error {
+                throw mapNetworkError(error)
+            }
+
+            guard let httpResponse = response.response else {
+                throw APIError.invalidResponse
+            }
+
+            try validate(response: httpResponse, data: data)
             do {
                 let value = try decoder.decode(T.self, from: data)
                 log("[\(requestID)] decode success type=\(String(describing: T.self))")
@@ -94,70 +141,161 @@ final class APIClient {
     ) async throws {
         let requestID = shortRequestID()
         let startTime = CFAbsoluteTimeGetCurrent()
-        let timingState = StreamTimingState()
+        let streamState = StreamState()
         logRequest(request, requestID: requestID, isStream: true)
 
         do {
-            let (bytes, response) = try await session.bytes(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw APIError.invalidResponse
-            }
+            let request = session
+                .streamRequest(request, automaticallyCancelOnStreamError: false)
+                .onHTTPResponse { response in
+                    streamState.setResponse(response)
 
-            if !(200...299).contains(httpResponse.statusCode) {
-                var data = Data()
-                for try await byte in bytes {
-                    data.append(byte)
+                    guard (200...299).contains(response.statusCode) else { return }
+
+                    let openedAt = CFAbsoluteTimeGetCurrent()
+                    streamState.setStreamOpenedAt(openedAt)
+                    self.logStreamOpened(response, requestID: requestID, startedAt: startTime)
                 }
-                logResponse(response, data: data, requestID: requestID, startedAt: startTime, isStream: true)
-                try validate(response: response, data: data)
-                return
-            }
-
-            timingState.streamOpenedAt = CFAbsoluteTimeGetCurrent()
-            logStreamOpened(httpResponse, requestID: requestID, startedAt: startTime)
+            let task = request.streamTask()
             var eventLines: [String] = []
+            var pendingText = ""
+            var errorText = ""
 
-            for try await line in bytes.lines {
-                if line.isEmpty {
-                    try await processEventLines(
-                        eventLines,
+            for await stream in task.streamingStrings(automaticallyCancelling: true, bufferingPolicy: .unbounded) {
+                if let value = stream.value {
+                    if let httpResponse = streamState.responseValue(), (200...299).contains(httpResponse.statusCode) {
+                        try await processStreamChunk(
+                            value,
+                            requestID: requestID,
+                            startedAt: startTime,
+                            streamState: streamState,
+                            eventLines: &eventLines,
+                            pendingText: &pendingText,
+                            onEvent: onEvent
+                        )
+                    } else {
+                        errorText.append(value)
+                    }
+                }
+
+                if let completion = stream.completion {
+                    if let error = completion.error {
+                        throw mapNetworkError(error)
+                    }
+
+                    let httpResponse = completion.response ?? streamState.responseValue()
+                    guard let httpResponse else {
+                        throw APIError.invalidResponse
+                    }
+
+                    if !(200...299).contains(httpResponse.statusCode) {
+                        let data = Data(errorText.utf8)
+                        logResponse(httpResponse, data: data, requestID: requestID, startedAt: startTime, isStream: true)
+                        try validate(response: httpResponse, data: data)
+                    }
+
+                    try await finalizeStreamBuffer(
                         requestID: requestID,
                         startedAt: startTime,
-                        timingState: timingState,
+                        streamState: streamState,
+                        eventLines: &eventLines,
+                        pendingText: &pendingText,
                         onEvent: onEvent
                     )
-                    eventLines.removeAll(keepingCapacity: true)
-                    continue
+
+                    log("[\(requestID)] stream completed duration=\(formattedDuration(since: startTime))")
                 }
-                eventLines.append(line)
             }
-
-            if !eventLines.isEmpty {
-                try await processEventLines(
-                    eventLines,
-                    requestID: requestID,
-                    startedAt: startTime,
-                    timingState: timingState,
-                    onEvent: onEvent
-                )
-            }
-
-            log("[\(requestID)] stream completed duration=\(formattedDuration(since: startTime))")
         } catch let error as APIError {
             logError(error, requestID: requestID, startedAt: startTime)
             throw error
         } catch {
-            let wrappedError = APIError.network(error.localizedDescription)
+            let wrappedError = mapNetworkError(error)
             logError(wrappedError, requestID: requestID, startedAt: startTime)
             throw wrappedError
         }
+    }
+
+    private func processStreamChunk(
+        _ chunk: String,
+        requestID: String,
+        startedAt: CFAbsoluteTime,
+        streamState: StreamState,
+        eventLines: inout [String],
+        pendingText: inout String,
+        onEvent: @escaping (String) async -> Void
+    ) async throws {
+        pendingText.append(chunk)
+
+        let normalizedText = pendingText
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let lines = normalizedText.components(separatedBy: "\n")
+        pendingText = lines.last ?? ""
+
+        for line in lines.dropLast() {
+            if line.isEmpty {
+                try await flushEventLines(
+                    requestID: requestID,
+                    startedAt: startedAt,
+                    streamState: streamState,
+                    eventLines: &eventLines,
+                    onEvent: onEvent
+                )
+            } else {
+                eventLines.append(line)
+            }
+        }
+    }
+
+    private func finalizeStreamBuffer(
+        requestID: String,
+        startedAt: CFAbsoluteTime,
+        streamState: StreamState,
+        eventLines: inout [String],
+        pendingText: inout String,
+        onEvent: @escaping (String) async -> Void
+    ) async throws {
+        if !pendingText.isEmpty {
+            eventLines.append(pendingText)
+            pendingText.removeAll(keepingCapacity: true)
+        }
+
+        try await flushEventLines(
+            requestID: requestID,
+            startedAt: startedAt,
+            streamState: streamState,
+            eventLines: &eventLines,
+            onEvent: onEvent
+        )
+    }
+
+    private func flushEventLines(
+        requestID: String,
+        startedAt: CFAbsoluteTime,
+        streamState: StreamState,
+        eventLines: inout [String],
+        onEvent: @escaping (String) async -> Void
+    ) async throws {
+        guard !eventLines.isEmpty else { return }
+
+        let lines = eventLines
+        eventLines.removeAll(keepingCapacity: true)
+
+        try await processEventLines(
+            lines,
+            requestID: requestID,
+            startedAt: startedAt,
+            streamState: streamState,
+            onEvent: onEvent
+        )
     }
 
     private func processEventLines(
         _ lines: [String],
         requestID: String,
         startedAt: CFAbsoluteTime,
-        timingState: StreamTimingState,
+        streamState: StreamState,
         onEvent: @escaping (String) async -> Void
     ) async throws {
         let payloads = lines.compactMap { line -> String? in
@@ -180,12 +318,9 @@ final class APIClient {
             }
             for choice in chunk.choices {
                 if let content = choice.delta.content, !content.isEmpty {
-                    if !timingState.didLogFirstDelta {
-                        timingState.didLogFirstDelta = true
+                    if let streamOpenedAt = streamState.consumeFirstDeltaStreamOpenedAt() {
                         let totalDuration = formattedDuration(since: startedAt)
-                        let openDuration = timingState.streamOpenedAt.map { streamOpenedAt in
-                            String(format: "%.3fs", CFAbsoluteTimeGetCurrent() - streamOpenedAt)
-                        } ?? "n/a"
+                        let openDuration = String(format: "%.3fs", CFAbsoluteTimeGetCurrent() - streamOpenedAt)
                         log("[\(requestID)] FIRST DELTA after_request=\(totalDuration) after_stream_open=\(openDuration)")
                     }
                     log("[\(requestID)] delta \(preview(content, limit: 140))")
@@ -193,6 +328,29 @@ final class APIClient {
                 }
             }
         }
+    }
+
+    private func mapNetworkError(_ error: Error) -> APIError {
+        if let apiError = error as? APIError {
+            return apiError
+        }
+
+        if let afError = error as? AFError {
+            if let underlyingError = afError.underlyingError {
+                return APIError.network(underlyingError.localizedDescription)
+            }
+            return APIError.network(afError.localizedDescription)
+        }
+
+        return APIError.network(error.localizedDescription)
+    }
+
+    private static func makeSession() -> Session {
+        let configuration = URLSessionConfiguration.af.default
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.timeoutIntervalForRequest = 30
+        configuration.timeoutIntervalForResource = 180
+        return Session(configuration: configuration)
     }
 
     private func validate(response: URLResponse, data: Data) throws {

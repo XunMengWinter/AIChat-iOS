@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		58CD8CAD2F7659D8002B2E44 /* AGENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 58CD8CAC2F7659D0002B2E44 /* AGENTS.md */; };
+		58D200012F90010000A1CHAT /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 58D200022F90010000A1CHAT /* Alamofire */; };
 		58E100012F80010000A1CHAT /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = 58E100022F80010000A1CHAT /* Nuke */; };
 		58E100032F80010000A1CHAT /* NukeUI in Frameworks */ = {isa = PBXBuildFile; productRef = 58E100042F80010000A1CHAT /* NukeUI */; };
 /* End PBXBuildFile section */
@@ -35,6 +36,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				58D200012F90010000A1CHAT /* Alamofire in Frameworks */,
 				58E100012F80010000A1CHAT /* Nuke in Frameworks */,
 				58E100032F80010000A1CHAT /* NukeUI in Frameworks */,
 			);
@@ -82,6 +84,7 @@
 			);
 			name = "AIChat-iOS";
 			packageProductDependencies = (
+				58D200022F90010000A1CHAT /* Alamofire */,
 				58E100022F80010000A1CHAT /* Nuke */,
 				58E100042F80010000A1CHAT /* NukeUI */,
 			);
@@ -114,6 +117,7 @@
 			mainGroup = 58CD8C952F765977002B2E44;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				58D200002F90010000A1CHAT /* XCRemoteSwiftPackageReference "alamofire" */,
 				58E100002F80010000A1CHAT /* XCRemoteSwiftPackageReference "Nuke" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -361,6 +365,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		58D200002F90010000A1CHAT /* XCRemoteSwiftPackageReference "alamofire" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/alamofire/alamofire";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.10.0;
+			};
+		};
 		58E100002F80010000A1CHAT /* XCRemoteSwiftPackageReference "Nuke" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kean/Nuke";
@@ -372,6 +384,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		58D200022F90010000A1CHAT /* Alamofire */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 58D200002F90010000A1CHAT /* XCRemoteSwiftPackageReference "alamofire" */;
+			productName = Alamofire;
+		};
 		58E100022F80010000A1CHAT /* Nuke */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 58E100002F80010000A1CHAT /* XCRemoteSwiftPackageReference "Nuke" */;
