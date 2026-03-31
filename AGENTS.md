@@ -14,7 +14,8 @@ AI 陪伴聊天 App
 - 支持 iOS 17 及以上
 - 使用 SwiftUI 开发
 - 网络图片加载使用 Nuke：`https://github.com/kean/Nuke`
-- 除 Nuke 外，不要使用其他第三方库
+- 网络请求与流式响应使用 Alamofire：`https://github.com/alamofire/alamofire`
+- 除 Nuke 与 Alamofire 外，不要使用其他第三方库
 - 遇到 `ObservableObject` 时，需要 `import Combine`
 - 使用 iPhone 17 模拟器进行编译与运行验证
 - 所有实现应尽量简单、清晰、可读
