@@ -21,6 +21,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		586030AD2F7E275100662A6A /* docs */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = docs;
+			sourceTree = "<group>";
+		};
 		58CD8CA02F765977002B2E44 /* AIChat-iOS */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "AIChat-iOS";
@@ -50,6 +55,7 @@
 		58CD8C952F765977002B2E44 = {
 			isa = PBXGroup;
 			children = (
+				586030AD2F7E275100662A6A /* docs */,
 				586030AB2F7E25E400662A6A /* README.md */,
 				58CD8D102F7669E5002B2E44 /* logs */,
 				58CD8CAC2F7659D0002B2E44 /* AGENTS.md */,
@@ -82,6 +88,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				586030AD2F7E275100662A6A /* docs */,
 				58CD8CA02F765977002B2E44 /* AIChat-iOS */,
 				58CD8D102F7669E5002B2E44 /* logs */,
 			);

@@ -46,12 +46,9 @@ It follows a Figma design and integrates with a real backend API, covering onboa
 
 ## 预览
 
-截图 / GIF 待补充。
-
-当前仓库暂未包含演示图片资源，后续可在该部分补充：
-
 - Onboarding 角色选择页
 - 首页角色列表与最近聊天
+![Home](docs/img_figma_ios_home.jpg)
 - 聊天页流式回复演示
 - 图片发送与设置页
 
