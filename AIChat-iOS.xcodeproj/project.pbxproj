@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		586030AC2F7E25E400662A6A /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = 586030AB2F7E25E400662A6A /* README.md */; };
 		58CD8CAD2F7659D8002B2E44 /* AGENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 58CD8CAC2F7659D0002B2E44 /* AGENTS.md */; };
 		58D200012F90010000A1CHAT /* Alamofire in Frameworks */ = {isa = PBXBuildFile; productRef = 58D200022F90010000A1CHAT /* Alamofire */; };
 		58E100012F80010000A1CHAT /* Nuke in Frameworks */ = {isa = PBXBuildFile; productRef = 58E100022F80010000A1CHAT /* Nuke */; };
@@ -14,6 +15,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		586030AB2F7E25E400662A6A /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		58CD8C9E2F765977002B2E44 /* AIChat-iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "AIChat-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		58CD8CAC2F7659D0002B2E44 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -48,6 +50,7 @@
 		58CD8C952F765977002B2E44 = {
 			isa = PBXGroup;
 			children = (
+				586030AB2F7E25E400662A6A /* README.md */,
 				58CD8D102F7669E5002B2E44 /* logs */,
 				58CD8CAC2F7659D0002B2E44 /* AGENTS.md */,
 				58CD8CA02F765977002B2E44 /* AIChat-iOS */,
@@ -135,6 +138,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				586030AC2F7E25E400662A6A /* README.md in Resources */,
 				58CD8CAD2F7659D8002B2E44 /* AGENTS.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
