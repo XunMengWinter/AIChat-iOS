@@ -36,7 +36,7 @@ struct SettingsView: View {
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("退出后会回到登录页，但会保留你已选择的陪伴角色。")
+            Text("退出后会回到引导页，但会保留你已选择的陪伴角色。")
         }
     }
 
@@ -180,7 +180,7 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            Text("退出后会回到登录页，不会清除你已选中的角色和聊天入口。")
+            Text("退出后会回到引导页，不会清除你已选中的角色和聊天入口。")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
                 .padding(.horizontal, 4)

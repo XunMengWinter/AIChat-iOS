@@ -150,12 +150,10 @@ final class AppSessionStore: ObservableObject {
     }
 
     private func updateInitialScreen() {
-        if hasCompletedSelection == false || selectedRoleCode == nil {
-            screen = .onboarding
-        } else if loginSession != nil {
+        if loginSession != nil, hasCompletedSelection, selectedRoleCode != nil {
             screen = .home
         } else {
-            screen = .login
+            screen = .onboarding
         }
     }
 
