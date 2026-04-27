@@ -132,6 +132,14 @@ final class AppSessionStore: ObservableObject {
         updateInitialScreen()
     }
 
+    func clearAccountDataAfterDeletion() {
+        loginSession = nil
+        selectedRoleCode = nil
+        hasCompletedSelection = false
+        storage.clearAccountState()
+        screen = .onboarding
+    }
+
     func role(for roleCode: String?) -> Role? {
         guard let roleCode else { return nil }
         return roles.first(where: { $0.roleCode == roleCode })

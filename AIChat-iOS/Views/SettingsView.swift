@@ -7,7 +7,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var sessionStore: AppSessionStore
+    @StateObject private var viewModel = SettingsViewModel()
     @State private var isShowingLogoutConfirmation = false
+    @State private var isShowingDeleteAccountConfirmation = false
 
     private let pageHorizontalPadding: CGFloat = 32
 
@@ -19,7 +21,8 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     topBar
                     accountCard
-                    logoutSection
+                    errorBanner
+                    accountActionsSection
                 }
                 .padding(.horizontal, pageHorizontalPadding)
                 .padding(.top, 18)
@@ -37,6 +40,23 @@ struct SettingsView: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text("退出后会回到引导页，但会保留你已选择的陪伴角色。")
+        }
+        .confirmationDialog(
+            "确认注销当前账号？",
+            isPresented: $isShowingDeleteAccountConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("注销账号", role: .destructive) {
+                Task {
+                    let didDelete = await viewModel.deleteAccount(accessToken: sessionStore.accessToken)
+                    if didDelete {
+                        sessionStore.clearAccountDataAfterDeletion()
+                    }
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("注销后将删除账号及相关个人数据。该操作不可撤销。")
         }
     }
 
@@ -110,7 +130,7 @@ struct SettingsView: View {
                         .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundStyle(AppTheme.textPrimary)
 
-                    Text(sessionStore.loginSession?.isTestAccount == true ? "当前为测试账号" : "当前账号已登录")
+                    Text("当前账号已登录")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(AppTheme.textSecondary)
                 }
@@ -154,9 +174,23 @@ struct SettingsView: View {
         .shadow(color: AppTheme.cardShadow, radius: 20, x: 0, y: 12)
     }
 
-    private var logoutSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    @ViewBuilder
+    private var errorBanner: some View {
+        if let errorMessage = viewModel.errorMessage {
+            Text(errorMessage)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+                .background(Color.white.opacity(0.86))
+                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+    }
+
+    private var accountActionsSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
             Button {
+                viewModel.clearError()
                 isShowingLogoutConfirmation = true
             } label: {
                 HStack(spacing: 10) {
@@ -179,8 +213,42 @@ struct SettingsView: View {
                 .shadow(color: Color(hex: 0xFF7B96, alpha: 0.24), radius: 18, x: 0, y: 10)
             }
             .buttonStyle(.plain)
+            .disabled(viewModel.isDeletingAccount)
 
             Text("退出后会回到引导页，不会清除你已选中的角色和聊天入口。")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary)
+                .padding(.horizontal, 4)
+
+            Button {
+                viewModel.clearError()
+                isShowingDeleteAccountConfirmation = true
+            } label: {
+                HStack(spacing: 10) {
+                    if viewModel.isDeletingAccount {
+                        ProgressView()
+                            .tint(.red)
+                    } else {
+                        Image(systemName: "person.crop.circle.badge.xmark")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    Text(viewModel.isDeletingAccount ? "正在注销账号…" : "注销账号")
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                }
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+                .background(Color.white.opacity(0.86))
+                .clipShape(Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(Color.red.opacity(0.18), lineWidth: 1)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(viewModel.isDeletingAccount)
+
+            Text("注销账号会向服务器提交删除请求。成功后会清除本机登录态、已选角色和聊天入口。")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(AppTheme.textSecondary)
                 .padding(.horizontal, 4)

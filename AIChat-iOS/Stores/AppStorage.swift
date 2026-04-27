@@ -12,28 +12,46 @@ final class AppStorage {
         static let hasCompletedSelection = "app.hasCompletedSelection"
     }
 
+    private enum KeychainAccount {
+        static let loginSession = "loginSession"
+    }
+
     private let userDefaults: UserDefaults
+    private let keychainStore: KeychainStore
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
-    init(userDefaults: UserDefaults = .standard) {
+    init(
+        userDefaults: UserDefaults = .standard,
+        keychainStore: KeychainStore = KeychainStore()
+    ) {
         self.userDefaults = userDefaults
+        self.keychainStore = keychainStore
     }
 
     func loadSession() -> LoginSession? {
-        guard let data = userDefaults.data(forKey: Key.loginSession) else {
+        userDefaults.removeObject(forKey: Key.loginSession)
+
+        let data: Data?
+        do {
+            data = try keychainStore.data(for: KeychainAccount.loginSession)
+        } catch {
             return nil
         }
+
+        guard let data else { return nil }
         return try? decoder.decode(LoginSession.self, from: data)
     }
 
     func saveSession(_ session: LoginSession?) {
+        userDefaults.removeObject(forKey: Key.loginSession)
+
         guard let session else {
-            userDefaults.removeObject(forKey: Key.loginSession)
+            try? keychainStore.delete(account: KeychainAccount.loginSession)
             return
         }
         if let data = try? encoder.encode(session) {
-            userDefaults.set(data, forKey: Key.loginSession)
+            try? keychainStore.save(data, for: KeychainAccount.loginSession)
         }
     }
 
@@ -42,6 +60,10 @@ final class AppStorage {
     }
 
     func saveSelectedRoleCode(_ roleCode: String?) {
+        guard let roleCode else {
+            userDefaults.removeObject(forKey: Key.selectedRoleCode)
+            return
+        }
         userDefaults.set(roleCode, forKey: Key.selectedRoleCode)
     }
 
@@ -51,5 +73,11 @@ final class AppStorage {
 
     func saveHasCompletedSelection(_ completed: Bool) {
         userDefaults.set(completed, forKey: Key.hasCompletedSelection)
+    }
+
+    func clearAccountState() {
+        saveSession(nil)
+        saveSelectedRoleCode(nil)
+        saveHasCompletedSelection(false)
     }
 }

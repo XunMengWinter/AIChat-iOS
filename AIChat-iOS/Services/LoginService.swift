@@ -42,4 +42,14 @@ final class LoginService {
         let response = try await client.perform(request, as: LoginResponse.self)
         return response.session
     }
+
+    func deleteAccount(accessToken: String) async throws -> DeleteAccountResponse {
+        let url = baseURL.appending(path: "account")
+        let request = client.makeRequest(
+            url: url,
+            method: "DELETE",
+            accessToken: accessToken
+        )
+        return try await client.perform(request, as: DeleteAccountResponse.self)
+    }
 }

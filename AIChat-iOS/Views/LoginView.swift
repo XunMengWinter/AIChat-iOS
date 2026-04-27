@@ -9,10 +9,34 @@ struct LoginView: View {
     @EnvironmentObject private var sessionStore: AppSessionStore
     @StateObject private var viewModel = LoginViewModel()
     @FocusState private var focusedField: Field?
+    @State private var selectedLegalDocument: LegalDocument?
 
     enum Field {
         case phoneNumber
         case verifyCode
+    }
+
+    private enum LegalDocument: Identifiable {
+        case userAgreement
+        case privacyPolicy
+
+        var id: String {
+            switch self {
+            case .userAgreement:
+                return "userAgreement"
+            case .privacyPolicy:
+                return "privacyPolicy"
+            }
+        }
+
+        var url: URL {
+            switch self {
+            case .userAgreement:
+                return AppLegalLinks.userAgreementURL
+            case .privacyPolicy:
+                return AppLegalLinks.privacyPolicyURL
+            }
+        }
     }
 
     var body: some View {
@@ -29,6 +53,10 @@ struct LoginView: View {
                 .padding(.top, 32)
                 .padding(.bottom, 24)
             }
+        }
+        .sheet(item: $selectedLegalDocument) { document in
+            SafariView(url: document.url)
+                .ignoresSafeArea()
         }
     }
 
@@ -132,20 +160,6 @@ struct LoginView: View {
                 statusCard(text: errorMessage, color: Color.red.opacity(0.10), textColor: .red)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("测试账号信息")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(AppTheme.purple)
-                Text("手机号：10086")
-                Text("验证码：1234")
-            }
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(AppTheme.textSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(Color.white.opacity(0.72))
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-
             Button {
                 Task {
                     do {
@@ -178,11 +192,7 @@ struct LoginView: View {
             .disabled(!viewModel.canLogin)
             .padding(.top, 4)
 
-            Text("登录即表示同意《用户协议》和《隐私政策》")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary.opacity(0.8))
-                .multilineTextAlignment(.center)
-                .padding(.top, 8)
+            legalConsent
         }
     }
 
@@ -201,5 +211,28 @@ struct LoginView: View {
             .padding(16)
             .background(color)
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    private var legalConsent: some View {
+        VStack(spacing: 4) {
+            Text("登录即表示同意")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary.opacity(0.8))
+
+            HStack(spacing: 2) {
+                Button("《用户协议》") {
+                    selectedLegalDocument = .userAgreement
+                }
+                Text("和")
+                    .foregroundStyle(AppTheme.textSecondary.opacity(0.8))
+                Button("《隐私政策》") {
+                    selectedLegalDocument = .privacyPolicy
+                }
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(AppTheme.purple)
+        }
+        .multilineTextAlignment(.center)
+        .padding(.top, 8)
     }
 }

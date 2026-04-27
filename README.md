@@ -1,10 +1,10 @@
-# AI 陪伴聊天 App
+# 伴语 EchoMate
 
-一个基于 SwiftUI 实现的 iOS AI 陪伴聊天客户端项目。
+一个基于 SwiftUI 实现的 iOS AI 陪伴聊天客户端项目，中文名称为“伴语”，英文名称为 “EchoMate”。
 
 项目以 Figma 设计稿为视觉参考，以后端 API 文档为联调依据，当前已实现从角色引导、验证码登录到流式聊天的完整主流程，适合作为 SwiftUI + SSE 聊天类 App 的实践样例。
 
-AIChat-iOS is an iOS client built with SwiftUI for an AI companion chat experience.  
+EchoMate is an iOS client built with SwiftUI for an AI companion chat experience.  
 It follows a Figma design and integrates with a real backend API, covering onboarding, SMS login, role-based chat, SSE streaming replies, and image-assisted messaging.
 
 ## 目录

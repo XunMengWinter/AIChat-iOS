@@ -123,6 +123,7 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
 			);
 			mainGroup = 58CD8C952F765977002B2E44;
 			minimizedProjectReferenceProxies = 1;
@@ -294,7 +295,7 @@
 				DEVELOPMENT_TEAM = YQUYHUMBV2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "AI 聊天";
+				INFOPLIST_KEY_CFBundleDisplayName = "伴语";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -328,7 +329,7 @@
 				DEVELOPMENT_TEAM = YQUYHUMBV2;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "AI 聊天";
+				INFOPLIST_KEY_CFBundleDisplayName = "伴语";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
