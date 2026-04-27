@@ -52,4 +52,26 @@ final class LoginService {
         )
         return try await client.perform(request, as: DeleteAccountResponse.self)
     }
+
+    func fetchProfile(accessToken: String) async throws -> UserProfile {
+        let request = client.makeRequest(
+            url: baseURL.appending(path: "account/profile"),
+            method: "GET",
+            accessToken: accessToken
+        )
+        let response = try await client.perform(request, as: UserProfileResponse.self)
+        return response.profile
+    }
+
+    func updateProfile(input: UserProfileInput, accessToken: String) async throws -> UserProfile {
+        let body = try client.encodeBody(input)
+        let request = client.makeRequest(
+            url: baseURL.appending(path: "account/profile"),
+            method: "PUT",
+            accessToken: accessToken,
+            body: body
+        )
+        let response = try await client.perform(request, as: UpdateUserProfileResponse.self)
+        return response.profile
+    }
 }

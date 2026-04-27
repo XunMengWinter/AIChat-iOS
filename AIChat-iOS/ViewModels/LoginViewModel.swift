@@ -10,6 +10,7 @@ import Foundation
 final class LoginViewModel: ObservableObject {
     @Published var phoneNumber = ""
     @Published var verificationCode = ""
+    @Published private(set) var selectedCountryDialCode = CountryDialCode.china
     @Published private(set) var countdown = 0
     @Published private(set) var isSendingCode = false
     @Published private(set) var isLoggingIn = false
@@ -39,6 +40,17 @@ final class LoginViewModel: ObservableObject {
         isValidPhoneNumber && verificationCode.count == 4 && !isLoggingIn
     }
 
+    func selectCountryDialCode(_ countryDialCode: CountryDialCode) {
+        selectedCountryDialCode = countryDialCode
+        phoneNumber = sanitizedPhoneNumber(phoneNumber)
+        infoMessage = nil
+        errorMessage = nil
+    }
+
+    func updatePhoneNumber(_ value: String) {
+        phoneNumber = sanitizedPhoneNumber(value)
+    }
+
     func sendCode() async {
         guard isValidPhoneNumber else {
             errorMessage = "请输入正确的手机号"
@@ -50,7 +62,10 @@ final class LoginViewModel: ObservableObject {
         isSendingCode = true
 
         do {
-            let response = try await loginService.sendCode(phoneNumber: phoneNumber)
+            let response = try await loginService.sendCode(
+                phoneNumber: phoneNumber,
+                countryCode: selectedCountryDialCode.apiValue
+            )
             infoMessage = response.message
             startCountdown()
         } catch {
@@ -76,7 +91,11 @@ final class LoginViewModel: ObservableObject {
         defer { isLoggingIn = false }
 
         do {
-            return try await loginService.login(phoneNumber: phoneNumber, verifyCode: verificationCode)
+            return try await loginService.login(
+                phoneNumber: phoneNumber,
+                verifyCode: verificationCode,
+                countryCode: selectedCountryDialCode.apiValue
+            )
         } catch {
             errorMessage = error.localizedDescription
             throw error
@@ -85,7 +104,14 @@ final class LoginViewModel: ObservableObject {
 
     private var isValidPhoneNumber: Bool {
         let digits = phoneNumber.filter(\.isNumber)
-        return (5...11).contains(digits.count)
+        return (5...selectedCountryDialCode.maxPhoneDigits).contains(digits.count)
+    }
+
+    private func sanitizedPhoneNumber(_ value: String) -> String {
+        value
+            .filter(\.isNumber)
+            .prefix(selectedCountryDialCode.maxPhoneDigits)
+            .description
     }
 
     private func startCountdown(from seconds: Int = 60) {

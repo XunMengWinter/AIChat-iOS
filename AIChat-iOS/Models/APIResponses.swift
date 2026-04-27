@@ -62,3 +62,14 @@ struct DeleteAccountResponse: Decodable {
     let success: Bool
     let message: String
 }
+
+struct UserProfileResponse: Decodable {
+    let success: Bool
+    let profile: UserProfile
+}
+
+struct UpdateUserProfileResponse: Decodable {
+    let success: Bool
+    let message: String
+    let profile: UserProfile
+}

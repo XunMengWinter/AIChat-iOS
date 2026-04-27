@@ -10,6 +10,7 @@ struct LoginView: View {
     @StateObject private var viewModel = LoginViewModel()
     @FocusState private var focusedField: Field?
     @State private var selectedLegalDocument: LegalDocument?
+    @State private var isCountryPickerPresented = false
 
     enum Field {
         case phoneNumber
@@ -58,6 +59,15 @@ struct LoginView: View {
             SafariView(url: document.url)
                 .ignoresSafeArea()
         }
+        .sheet(isPresented: $isCountryPickerPresented) {
+            CountryDialCodePickerView(
+                selectedCountryDialCode: viewModel.selectedCountryDialCode
+            ) { countryDialCode in
+                viewModel.selectCountryDialCode(countryDialCode)
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     private var header: some View {
@@ -88,18 +98,25 @@ struct LoginView: View {
             VStack(alignment: .leading, spacing: 10) {
                 fieldTitle("手机号")
                 HStack(spacing: 12) {
-                    HStack(spacing: 6) {
-                        Text("+86")
-                            .foregroundStyle(AppTheme.textPrimary)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(AppTheme.textSecondary)
+                    Button {
+                        isCountryPickerPresented = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(viewModel.selectedCountryDialCode.dialCode)
+                                .foregroundStyle(AppTheme.textPrimary)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
+                        .font(.system(size: 15, weight: .medium))
+                        .padding(.horizontal, 16)
+                        .frame(height: 56)
+                        .background(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                     }
-                    .font(.system(size: 15, weight: .medium))
-                    .padding(.horizontal, 16)
-                    .frame(height: 56)
-                    .background(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("选择国家区号")
+                    .accessibilityValue(viewModel.selectedCountryDialCode.dialCode)
 
                     TextField("请输入手机号", text: $viewModel.phoneNumber)
                         .keyboardType(.numberPad)
@@ -110,7 +127,7 @@ struct LoginView: View {
                         .background(.white)
                         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                         .onChange(of: viewModel.phoneNumber) { _, newValue in
-                            viewModel.phoneNumber = newValue.filter(\.isNumber).prefix(11).description
+                            viewModel.updatePhoneNumber(newValue)
                         }
                 }
             }
@@ -234,5 +251,49 @@ struct LoginView: View {
         }
         .multilineTextAlignment(.center)
         .padding(.top, 8)
+    }
+}
+
+private struct CountryDialCodePickerView: View {
+    @Environment(\.dismiss) private var dismiss
+    let selectedCountryDialCode: CountryDialCode
+    let onSelect: (CountryDialCode) -> Void
+
+    var body: some View {
+        NavigationStack {
+            List(CountryDialCode.popular) { countryDialCode in
+                Button {
+                    onSelect(countryDialCode)
+                    dismiss()
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(countryDialCode.chineseName)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(AppTheme.textPrimary)
+
+                            Text(countryDialCode.englishName)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(AppTheme.textSecondary)
+                        }
+
+                        Spacer()
+
+                        Text(countryDialCode.dialCode)
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundStyle(AppTheme.textPrimary)
+
+                        Image(systemName: selectedCountryDialCode.id == countryDialCode.id ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundStyle(selectedCountryDialCode.id == countryDialCode.id ? AppTheme.purple : AppTheme.textSecondary.opacity(0.28))
+                    }
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+            }
+            .listStyle(.plain)
+            .navigationTitle("选择国家区号")
+            .navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
